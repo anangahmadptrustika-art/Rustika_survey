@@ -232,6 +232,15 @@ def parse_args(argv=None):
                    help="Simpan video hasil anotasi ke folder sesi.")
     p.add_argument("--max-frames", type=int, default=0,
                    help="Berhenti setelah N frame (0 = tanpa batas). Berguna untuk uji.")
+    # --- Fase 3: GPS + peta ---
+    p.add_argument("--gps", default="auto",
+                   help="Sumber GPS: auto | none | srt:FILE.SRT | gpx:TRACK.GPX | "
+                        "nmea:PORT@BAUD | tcp:HOST:PORT | fixed:LAT,LON. "
+                        "'auto' mencari .SRT di sebelah video (footage drone DJI).")
+    p.add_argument("--gps-start", default=None,
+                   help="Waktu mulai video (ISO/epoch) untuk pencocokan GPX HP.")
+    p.add_argument("--map", action="store_true",
+                   help="Generate peta HTML + GeoJSON dari deteksi setelah selesai.")
     return p.parse_args(argv)
 
 
@@ -295,6 +304,25 @@ def main(argv=None) -> int:
     fw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 0
     fh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 0
 
+    # --- Fase 3: provider GPS ---
+    gps = None
+    try:
+        import geo
+        start_epoch = None
+        if args.gps_start:
+            try:
+                start_epoch = float(args.gps_start)
+            except ValueError:
+                start_epoch = datetime.fromisoformat(args.gps_start).timestamp()
+        gps = geo.make_provider(args.gps, source=str(args.source),
+                                video_start_epoch=start_epoch)
+        if gps:
+            print(f"  GPS         : {gps.kind} aktif")
+    except Exception as e:
+        print(f"  GPS         : gagal inisialisasi ({e}); lanjut tanpa GPS.")
+        gps = None
+    n_geo = 0  # jumlah deteksi dgn koordinat
+
     writer_out = None
     if args.save_video:
         out_path = session_dir / "annotated.mp4"
@@ -340,6 +368,11 @@ def main(argv=None) -> int:
                 ts = datetime.now()
                 video_time = (cap.get(cv2.CAP_PROP_POS_MSEC) or 0.0) / 1000.0
 
+                # Fase 3: koordinat GPS untuk frame ini.
+                fix = gps.get_fix(video_time) if gps else None
+                lat_s = f"{fix.lat:.7f}" if fix else ""
+                lon_s = f"{fix.lon:.7f}" if fix else ""
+
                 frame_class_saved = set()
                 if r.boxes is not None:
                     for box in r.boxes:
@@ -368,12 +401,14 @@ def main(argv=None) -> int:
                             shot_name = (f"{safe}_{shots_per_class[cls_name]:04d}"
                                          f"_f{frame_idx}.jpg")
 
+                        if fix:
+                            n_geo += 1
                         csv_writer.writerow([
                             detection_id, ts.isoformat(timespec="milliseconds"),
                             f"{ts.timestamp():.3f}", frame_idx, f"{video_time:.3f}",
                             cls_id, cls_name, f"{conf:.4f}",
                             x1, y1, x2, y2, bw, bh, bw * bh,
-                            fw, fh, "", "",            # lat/lon -> Fase 3
+                            fw, fh, lat_s, lon_s,
                             shot_name, args.source,
                         ])
 
@@ -433,6 +468,8 @@ def main(argv=None) -> int:
         if writer_out is not None:
             writer_out.release()
         csv_file.close()
+        if gps is not None:
+            gps.close()
         if not args.no_display:
             cv2.destroyAllWindows()
 
@@ -441,12 +478,27 @@ def main(argv=None) -> int:
     print("SELESAI. Ringkasan sesi:")
     print(f"  Total frame diproses : {frame_idx}")
     print(f"  Total deteksi        : {total_dets}")
+    print(f"  Deteksi ber-GPS      : {n_geo}")
     if shots_per_class:
         print("  Screenshot tersimpan :")
         for cls_name, n in sorted(shots_per_class.items()):
             print(f"     - {cls_name:<22}: {n}")
     print(f"  CSV   : {csv_path}")
     print(f"  Folder: {session_dir}")
+
+    # Fase 3: generate peta otomatis.
+    if args.map:
+        if n_geo == 0:
+            print("  Peta  : dilewati (tidak ada deteksi ber-koordinat). "
+                  "Pastikan --gps benar.")
+        else:
+            try:
+                import make_map
+                make_map.build_from_csv(csv_path, session_dir, screenshots=True)
+            except SystemExit as e:
+                print(f"  Peta  : {e}")
+            except Exception as e:
+                print(f"  Peta  : gagal ({e})")
     print("-" * 64)
     return 0
 

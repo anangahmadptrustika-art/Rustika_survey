@@ -11,3 +11,8 @@
 ultralytics>=8.2.0
 opencv-python>=4.8.0
 numpy>=1.24.0
+
+# Fase 3 — GPS & peta
+folium>=0.15.0          # peta HTML titik kerusakan
+# pyserial>=3.5         # HANYA bila pakai GPS USB dongle (NMEA serial). Uncomment bila perlu.
+# (GPX & telemetry .SRT drone DJI diparse tanpa dependensi tambahan)

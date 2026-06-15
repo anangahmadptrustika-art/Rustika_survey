@@ -15,7 +15,7 @@ Menjalankan deteksi kerusakan jalan (lubang/retak) dengan model AI **lokal
 |------|-----|--------|
 | **1** | Core detection loop: webcam/video/RTSP → YOLO → bbox → CSV + screenshot + FPS | ✅ selesai (`road_survey.py`) |
 | **2** | Model jalan rusak: (A) pre-trained pothole, lalu (B) fine-tune RDD2022 + data lokal | ✅ pipeline siap — lihat [`docs/FASE2.md`](docs/FASE2.md) |
-| **3** | GPS per deteksi (HP / USB dongle / telemetry .SRT DJI) + peta HTML offline | ⏳ |
+| **3** | GPS per deteksi (HP / USB dongle / telemetry .SRT DJI) + peta HTML + GeoJSON | ✅ siap — lihat [`docs/FASE3.md`](docs/FASE3.md) |
 | **4** | Laporan survey PDF/Excel A4 (ringkasan, tabel, peta, foto) | ⏳ |
 | **5** | (Opsional) Manajemen sesi + GUI | ⏳ |
 
@@ -71,9 +71,23 @@ python road_survey.py --source clip.mp4 --no-display --save-video
 
 # Pakai model jalan rusak (setelah Fase 2)
 python road_survey.py --source clip.mp4 --model models\road_damage.pt --conf 0.35
+
+# Dengan GPS + peta (Fase 3): footage drone DJI (auto-baca .SRT) -> peta
+python road_survey.py --source DJI_0001.MP4 --model models\road_damage.pt --map
 ```
 
 **Kontrol window:** `q` keluar · `p` pause/lanjut · `s` screenshot manual.
+
+### Fase 3 — GPS & peta (ringkas)
+
+Tambah koordinat ke tiap deteksi + peta. Panduan: **[`docs/FASE3.md`](docs/FASE3.md)**.
+
+```powershell
+python road_survey.py --source DJI_0001.MP4 --gps srt:DJI_0001.SRT --map   # drone DJI
+python road_survey.py --source 0 --gps nmea:COM3@4800 --map                 # USB dongle
+python make_map.py output\survey_YYYYMMDD_HHMMSS\detections.csv             # peta dari CSV
+```
+Output: `map.html` (Leaflet) + `detections.geojson` (QGIS/Google Earth) di folder sesi.
 
 ### Argumen penting
 
