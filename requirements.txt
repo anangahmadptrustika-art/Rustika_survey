@@ -1,0 +1,13 @@
+# Road Survey AI — dependensi Fase 1
+#
+# PENTING (Windows + NVIDIA CUDA):
+# Install PyTorch versi CUDA DULU, sebelum yang lain, supaya GPU dipakai.
+# Contoh (CUDA 12.1):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# Baru kemudian:
+#   pip install -r requirements.txt
+# Cek versi CUDA yang cocok di: https://pytorch.org/get-started/locally/
+
+ultralytics>=8.2.0
+opencv-python>=4.8.0
+numpy>=1.24.0
