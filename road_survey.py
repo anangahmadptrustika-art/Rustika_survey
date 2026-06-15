@@ -124,20 +124,86 @@ def is_webcam(source: str) -> bool:
     return str(source).isdigit()
 
 
-def open_capture(source: str, env: dict) -> "cv2.VideoCapture":
-    """Buka VideoCapture sesuai jenis sumber (webcam / RTSP / file)."""
+IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
+
+
+class ImageFolderCapture:
+    """Pengganti cv2.VideoCapture untuk folder gambar / pola glob / satu gambar.
+
+    Membuat road_survey.py bisa memproses kumpulan foto (mis. frame hasil
+    ekstrak footage drone, atau val set) seolah-olah video. Meniru antarmuka
+    cv2.VideoCapture yang dipakai loop utama (isOpened/get/read/release).
+    """
+
+    def __init__(self, paths, fps: float = 2.0):
+        self.paths = [str(p) for p in paths]
+        self.idx = 0
+        self.fps = fps if fps and fps > 0 else 2.0
+        self._w = self._h = 0
+        if self.paths:
+            first = cv2.imread(self.paths[0])
+            if first is not None:
+                self._h, self._w = first.shape[:2]
+
+    def isOpened(self):
+        return len(self.paths) > 0 and self._w > 0
+
+    def get(self, prop):
+        if prop == cv2.CAP_PROP_FPS:
+            return self.fps
+        if prop == cv2.CAP_PROP_FRAME_WIDTH:
+            return float(self._w)
+        if prop == cv2.CAP_PROP_FRAME_HEIGHT:
+            return float(self._h)
+        if prop == cv2.CAP_PROP_POS_MSEC:
+            return (max(0, self.idx - 1) / self.fps) * 1000.0
+        return 0.0
+
+    def read(self):
+        while self.idx < len(self.paths):
+            frame = cv2.imread(self.paths[self.idx])
+            self.idx += 1
+            if frame is not None:
+                return True, frame
+        return False, None
+
+    def release(self):
+        pass
+
+
+def open_capture(source: str, env: dict):
+    """Buka sumber: webcam / RTSP / file video / folder gambar / glob / 1 gambar."""
     src_str = str(source)
     if is_webcam(src_str):
         backend = pick_camera_backend(env["os"])
-        cap = cv2.VideoCapture(int(src_str), backend)
-    elif src_str.lower().startswith(("rtsp://", "http://", "https://", "udp://")):
-        cap = cv2.VideoCapture(src_str, cv2.CAP_FFMPEG)
-    else:
-        # File video / footage drone
-        if not Path(src_str).exists():
-            sys.exit(f"ERROR: file sumber tidak ditemukan: {src_str}")
-        cap = cv2.VideoCapture(src_str)
-    return cap
+        return cv2.VideoCapture(int(src_str), backend)
+    if src_str.lower().startswith(("rtsp://", "http://", "https://", "udp://")):
+        return cv2.VideoCapture(src_str, cv2.CAP_FFMPEG)
+
+    # Pola glob (mis. frames/*.jpg)
+    if any(c in src_str for c in "*?["):
+        import glob as _glob
+        imgs = sorted(x for x in _glob.glob(src_str)
+                      if Path(x).suffix.lower() in IMAGE_EXTS)
+        if not imgs:
+            sys.exit(f"ERROR: tidak ada gambar cocok pola: {src_str}")
+        print(f"[sumber] {len(imgs)} gambar (pola glob)")
+        return ImageFolderCapture(imgs)
+
+    p = Path(src_str)
+    if not p.exists():
+        sys.exit(f"ERROR: sumber tidak ditemukan: {src_str}")
+    if p.is_dir():
+        imgs = sorted(x for x in p.iterdir()
+                      if x.suffix.lower() in IMAGE_EXTS)
+        if not imgs:
+            sys.exit(f"ERROR: folder tidak berisi gambar: {src_str}")
+        print(f"[sumber] {len(imgs)} gambar dari folder {p}")
+        return ImageFolderCapture(imgs)
+    if p.suffix.lower() in IMAGE_EXTS:
+        return ImageFolderCapture([p])
+    # File video / footage drone
+    return cv2.VideoCapture(src_str)
 
 
 # --------------------------------------------------------------------------- #
