@@ -7,6 +7,8 @@ Menjalankan deteksi kerusakan jalan (lubang/retak) dengan model AI **lokal
 > **100% offline.** Tidak ada frame yang dikirim ke cloud AI apapun. Cocok untuk
 > lokasi tanpa sinyal internet.
 
+> 📘 **Cara pakai dari nol sampai laporan jadi → [`PANDUAN.md`](PANDUAN.md)** (SOP lapangan).
+
 ---
 
 ## Status & Roadmap
