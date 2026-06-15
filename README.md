@@ -14,7 +14,7 @@ Menjalankan deteksi kerusakan jalan (lubang/retak) dengan model AI **lokal
 | Fase | Isi | Status |
 |------|-----|--------|
 | **1** | Core detection loop: webcam/video/RTSP → YOLO → bbox → CSV + screenshot + FPS | ✅ selesai (`road_survey.py`) |
-| **2** | Model jalan rusak: (A) pre-trained pothole, lalu (B) fine-tune RDD2022 + data lokal | ⏳ berikutnya |
+| **2** | Model jalan rusak: (A) pre-trained pothole, lalu (B) fine-tune RDD2022 + data lokal | ✅ pipeline siap — lihat [`docs/FASE2.md`](docs/FASE2.md) |
 | **3** | GPS per deteksi (HP / USB dongle / telemetry .SRT DJI) + peta HTML offline | ⏳ |
 | **4** | Laporan survey PDF/Excel A4 (ringkasan, tabel, peta, foto) | ⏳ |
 | **5** | (Opsional) Manajemen sesi + GUI | ⏳ |
@@ -112,3 +112,28 @@ Deteksi kerusakan jalan yang sebenarnya datang di **Fase 2** dengan model khusus
 road-damage. Model generik **tidak otomatis akurat** di jalan Luwu Timur —
 akurasi akhir **wajib divalidasi** dengan footage lokal kamu sendiri sebelum
 dipakai produksi.
+
+---
+
+## Fase 2 — Model kerusakan jalan (ringkas)
+
+Panduan lengkap: **[`docs/FASE2.md`](docs/FASE2.md)** · Label data lokal: **[`docs/LABELING.md`](docs/LABELING.md)**
+
+| Komponen | File |
+|---|---|
+| Jalur A: ambil model pre-trained | `scripts/get_pretrained_model.py` |
+| Unduh RDD2022 | `scripts/download_rdd2022.py` |
+| Konversi VOC XML → YOLO | `scripts/voc_to_yolo.py` |
+| Training / fine-tune (sadar GPU) | `train.py` |
+| Validasi akurasi (metrik + visual) | `scripts/validate_model.py` |
+| Smoke-test setup tanpa RDD2022 | `scripts/smoke_test_training.py` |
+| Training di Colab (GPU gratis) | `notebooks/train_colab.ipynb` |
+| Kelas & data.yaml template | `configs/classes.txt`, `configs/road_damage.yaml` |
+
+Verifikasi cepat seluruh rantai (dataset sintetis):
+```powershell
+python scripts\smoke_test_training.py --out datasets\smoke --n 120
+python scripts\voc_to_yolo.py --input datasets\smoke --out datasets\smoke_yolo
+python train.py --data datasets\smoke_yolo\data.yaml --model yolov8n.pt --epochs 40 --imgsz 416 --device cpu --name smoke
+python road_survey.py --source <video> --model runs\detect\smoke\weights\best.pt --conf 0.25
+```
