@@ -241,6 +241,11 @@ def parse_args(argv=None):
                    help="Waktu mulai video (ISO/epoch) untuk pencocokan GPX HP.")
     p.add_argument("--map", action="store_true",
                    help="Generate peta HTML + GeoJSON dari deteksi setelah selesai.")
+    # --- Fase 4: laporan ---
+    p.add_argument("--report", action="store_true",
+                   help="Generate laporan PDF + Excel setelah selesai (sekali jalan).")
+    p.add_argument("--road", default=None, help="Nama ruas jalan (untuk laporan).")
+    p.add_argument("--surveyor", default="-", help="Nama surveyor (untuk laporan).")
     return p.parse_args(argv)
 
 
@@ -499,6 +504,24 @@ def main(argv=None) -> int:
                 print(f"  Peta  : {e}")
             except Exception as e:
                 print(f"  Peta  : gagal ({e})")
+
+    # Fase 4: laporan PDF + Excel.
+    if args.report:
+        if total_dets == 0:
+            print("  Laporan: dilewati (tidak ada deteksi).")
+        else:
+            try:
+                import make_report
+                meta = {
+                    "Ruas jalan": args.road or session,
+                    "Tanggal survey": datetime.now().strftime("%Y-%m-%d"),
+                    "Surveyor": args.surveyor,
+                    "Konsultan": "Rustika Citra Group",
+                    "Wilayah": "Kabupaten Luwu Timur",
+                }
+                make_report.build_report(csv_path, session_dir, meta)
+            except Exception as e:
+                print(f"  Laporan: gagal ({e})")
     print("-" * 64)
     return 0
 

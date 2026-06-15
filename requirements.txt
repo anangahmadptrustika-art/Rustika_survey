@@ -16,3 +16,8 @@ numpy>=1.24.0
 folium>=0.15.0          # peta HTML titik kerusakan
 # pyserial>=3.5         # HANYA bila pakai GPS USB dongle (NMEA serial). Uncomment bila perlu.
 # (GPX & telemetry .SRT drone DJI diparse tanpa dependensi tambahan)
+
+# Fase 4 — laporan PDF + Excel
+reportlab>=4.0          # laporan PDF A4
+openpyxl>=3.1           # laporan Excel
+matplotlib>=3.7         # grafik & sebaran lokasi di laporan

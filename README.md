@@ -16,7 +16,7 @@ Menjalankan deteksi kerusakan jalan (lubang/retak) dengan model AI **lokal
 | **1** | Core detection loop: webcam/video/RTSP → YOLO → bbox → CSV + screenshot + FPS | ✅ selesai (`road_survey.py`) |
 | **2** | Model jalan rusak: (A) pre-trained pothole, lalu (B) fine-tune RDD2022 + data lokal | ✅ pipeline siap — lihat [`docs/FASE2.md`](docs/FASE2.md) |
 | **3** | GPS per deteksi (HP / USB dongle / telemetry .SRT DJI) + peta HTML + GeoJSON | ✅ siap — lihat [`docs/FASE3.md`](docs/FASE3.md) |
-| **4** | Laporan survey PDF/Excel A4 (ringkasan, tabel, peta, foto) | ⏳ |
+| **4** | Laporan survey PDF/Excel A4 (ringkasan, tabel, peta, foto) | ✅ siap — lihat [`docs/FASE4.md`](docs/FASE4.md) |
 | **5** | (Opsional) Manajemen sesi + GUI | ⏳ |
 
 ---
@@ -88,6 +88,17 @@ python road_survey.py --source 0 --gps nmea:COM3@4800 --map                 # US
 python make_map.py output\survey_YYYYMMDD_HHMMSS\detections.csv             # peta dari CSV
 ```
 Output: `map.html` (Leaflet) + `detections.geojson` (QGIS/Google Earth) di folder sesi.
+
+### Fase 4 — Laporan PDF + Excel (ringkas)
+
+Dari CSV → laporan A4 siap kirim. Panduan: **[`docs/FASE4.md`](docs/FASE4.md)**.
+
+```powershell
+python make_report.py output\survey_YYYYMMDD_HHMMSS\detections.csv --road "Ruas Malili" --surveyor "Anang A."
+# atau sekali jalan saat survey:
+python road_survey.py --source DJI_0001.MP4 --model models\road_damage.pt --map --report --road "Ruas Malili"
+```
+Output: `laporan.pdf` (ringkasan + grafik + sebaran + tabel + foto) & `laporan.xlsx`. Deteksi per-frame di-**klaster** jadi kerusakan unik (anti dobel-hitung).
 
 ### Argumen penting
 
