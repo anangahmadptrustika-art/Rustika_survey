@@ -182,6 +182,7 @@ CSV_HEADER = [
     "detection_id", "timestamp_iso", "epoch_s", "frame_idx", "video_time_s",
     "class_id", "class_name", "confidence",
     "x1", "y1", "x2", "y2", "bbox_w", "bbox_h", "area_px",
+    "width_m", "length_m", "area_m2",   # diisi bila --calib (estimasi ukuran)
     "frame_w", "frame_h",
     "lat", "lon",            # diisi di Fase 3 (GPS); sekarang kosong
     "screenshot", "source",
@@ -241,6 +242,9 @@ def parse_args(argv=None):
                    help="Waktu mulai video (ISO/epoch) untuk pencocokan GPX HP.")
     p.add_argument("--map", action="store_true",
                    help="Generate peta HTML + GeoJSON dari deteksi setelah selesai.")
+    p.add_argument("--calib", default=None,
+                   help="File kalibrasi kamera (configs/camera_calib.json) untuk "
+                        "estimasi ukuran nyata kerusakan (m). Lihat calibrate_camera.py.")
     # --- Fase 4: laporan ---
     p.add_argument("--report", action="store_true",
                    help="Generate laporan PDF + Excel setelah selesai (sekali jalan).")
@@ -328,6 +332,20 @@ def main(argv=None) -> int:
         gps = None
     n_geo = 0  # jumlah deteksi dgn koordinat
 
+    # --- estimasi ukuran (kalibrasi kamera) ---
+    calib_H = None
+    if args.calib:
+        try:
+            import sizing
+            cal = sizing.load_calibration(args.calib)
+            if cal:
+                calib_H = cal["homography"]
+                print(f"  Ukuran      : kalibrasi aktif ({args.calib})")
+            else:
+                print(f"  Ukuran      : file kalibrasi tidak ada ({args.calib})")
+        except Exception as e:
+            print(f"  Ukuran      : gagal muat kalibrasi ({e})")
+
     writer_out = None
     if args.save_video:
         out_path = session_dir / "annotated.mp4"
@@ -393,6 +411,13 @@ def main(argv=None) -> int:
                         total_dets += 1
                         bw, bh = x2 - x1, y2 - y1
 
+                        # Estimasi ukuran nyata (m) bila kamera terkalibrasi.
+                        w_m = l_m = a_m2 = ""
+                        if calib_H is not None:
+                            import sizing
+                            sz = sizing.bbox_ground_size(calib_H, x1, y1, x2, y2)
+                            w_m, l_m, a_m2 = sz["width_m"], sz["length_m"], sz["area_m2"]
+
                         # Screenshot: dibatasi per kelas + cooldown agar variatif.
                         shot_name = ""
                         if (shots_per_class[cls_name] < args.max_shots_per_class
@@ -413,6 +438,7 @@ def main(argv=None) -> int:
                             f"{ts.timestamp():.3f}", frame_idx, f"{video_time:.3f}",
                             cls_id, cls_name, f"{conf:.4f}",
                             x1, y1, x2, y2, bw, bh, bw * bh,
+                            w_m, l_m, a_m2,
                             fw, fh, lat_s, lon_s,
                             shot_name, args.source,
                         ])

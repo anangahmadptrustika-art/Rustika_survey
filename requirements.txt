@@ -21,3 +21,7 @@ folium>=0.15.0          # peta HTML titik kerusakan
 reportlab>=4.0          # laporan PDF A4
 openpyxl>=3.1           # laporan Excel
 matplotlib>=3.7         # grafik & sebaran lokasi di laporan
+
+# Dashcam — estimasi ukuran & cloud enrichment (opsional)
+# numpy sudah di atas (dipakai kalibrasi homography)
+# anthropic>=0.40       # HANYA bila pakai cloud_enrich.py (Claude vision). Uncomment bila perlu.

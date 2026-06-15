@@ -2,6 +2,9 @@
 output/
 runs/
 
+# Kalibrasi kamera (spesifik mesin/pemasangan — generate sendiri)
+configs/camera_calib.json
+
 # Bobot model & dataset (besar — jangan masuk git)
 *.pt
 *.onnx

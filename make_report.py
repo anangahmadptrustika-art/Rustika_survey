@@ -83,6 +83,12 @@ def load_rows(csv_path: Path) -> list[dict]:
                     lat = float(d["lat"]); lon = float(d["lon"])
                 except ValueError:
                     pass
+            area_m2 = None
+            if d.get("area_m2") not in ("", None):
+                try:
+                    area_m2 = float(d["area_m2"])
+                except ValueError:
+                    pass
             rows.append({
                 "class": d.get("class_name", "?"),
                 "conf": float(d.get("confidence") or 0),
@@ -90,6 +96,7 @@ def load_rows(csv_path: Path) -> list[dict]:
                 "epoch": float(d.get("epoch_s") or 0),
                 "time": d.get("timestamp_iso", ""),
                 "rel_area": (area / (fw * fh)) if fw and fh else 0.0,
+                "area_m2": area_m2,
                 "lat": lat, "lon": lon,
                 "screenshot": d.get("screenshot", ""),
             })
@@ -114,7 +121,8 @@ def cluster_detections(rows, merge_dist_m, merge_frames):
         if match is None:
             clusters.append({
                 "class": r["class"], "max_conf": r["conf"],
-                "max_rel_area": r["rel_area"], "n_det": 1,
+                "max_rel_area": r["rel_area"], "max_area_m2": r["area_m2"],
+                "n_det": 1,
                 "first_frame": r["frame"], "last_frame": r["frame"],
                 "first_time": r["time"], "lat": r["lat"], "lon": r["lon"],
                 "_lat_sum": r["lat"] or 0.0, "_lon_sum": r["lon"] or 0.0,
@@ -125,6 +133,8 @@ def cluster_detections(rows, merge_dist_m, merge_frames):
             match["n_det"] += 1
             match["max_conf"] = max(match["max_conf"], r["conf"])
             match["max_rel_area"] = max(match["max_rel_area"], r["rel_area"])
+            if r["area_m2"] is not None:
+                match["max_area_m2"] = max(match["max_area_m2"] or 0.0, r["area_m2"])
             match["last_frame"] = r["frame"]
             if r["lat"] is not None:
                 match["_lat_sum"] += r["lat"]; match["_lon_sum"] += r["lon"]
@@ -136,9 +146,13 @@ def cluster_detections(rows, merge_dist_m, merge_frames):
     return clusters, has_gps
 
 
-def summarize(clusters, low, high):
+def summarize(clusters, low, high, low_m2, high_m2):
     for c in clusters:
-        c["severity"] = severity_for(c["max_rel_area"], low, high)
+        if c.get("max_area_m2") is not None:
+            # Keparahan dari luas nyata (m²) — lebih bermakna bila terkalibrasi.
+            c["severity"] = severity_for(c["max_area_m2"], low_m2, high_m2)
+        else:
+            c["severity"] = severity_for(c["max_rel_area"], low, high)
     per_class = Counter(c["class"] for c in clusters)
     per_sev = Counter(c["severity"] for c in clusters)
     matrix = defaultdict(lambda: Counter())
@@ -200,7 +214,7 @@ def build_charts(clusters, per_class, matrix, out_dir: Path):
 # --------------------------------------------------------------------------- #
 # Excel
 # --------------------------------------------------------------------------- #
-def build_excel(clusters, meta, per_class, matrix, out_path: Path):
+def build_excel(clusters, meta, per_class, matrix, has_size, out_path: Path):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
@@ -238,7 +252,7 @@ def build_excel(clusters, meta, per_class, matrix, out_path: Path):
     # Sheet 2: Detail
     ws2 = wb.create_sheet("Detail Kerusakan")
     headers = ["No", "Jenis", "Keparahan", "Latitude", "Longitude",
-               "Confidence", "Luas bbox (%)", "Frame", "Waktu", "Foto"]
+               "Confidence", "Luas bbox (%)", "Luas (m²)", "Frame", "Waktu", "Foto"]
     for j, h in enumerate(headers, 1):
         c = ws2.cell(1, j, h); c.font = hdr_font; c.fill = hdr_fill
         c.alignment = Alignment(horizontal="center")
@@ -248,6 +262,7 @@ def build_excel(clusters, meta, per_class, matrix, out_path: Path):
             round(c["lat"], 7) if c["lat"] is not None else "",
             round(c["lon"], 7) if c["lon"] is not None else "",
             round(c["max_conf"], 3), round(c["max_rel_area"] * 100, 3),
+            round(c["max_area_m2"], 4) if c.get("max_area_m2") is not None else "",
             c["first_frame"], c["first_time"], c["screenshot"],
         ]
         for j, v in enumerate(row, 1):
@@ -255,7 +270,7 @@ def build_excel(clusters, meta, per_class, matrix, out_path: Path):
         sev_cell = ws2.cell(i + 1, 3)
         sev_cell.fill = PatternFill("solid", fgColor=SEV_HEX[c["severity"]].lstrip("#"))
         sev_cell.font = Font(color="FFFFFF", bold=True)
-    widths = [5, 18, 11, 13, 13, 11, 14, 8, 24, 26]
+    widths = [5, 18, 11, 13, 13, 11, 14, 11, 8, 24, 26]
     for j, w in enumerate(widths, 1):
         ws2.column_dimensions[chr(64 + j)].width = w
     ws2.freeze_panes = "A2"
@@ -268,7 +283,7 @@ def build_excel(clusters, meta, per_class, matrix, out_path: Path):
 # PDF (A4)
 # --------------------------------------------------------------------------- #
 def build_pdf(clusters, meta, per_class, per_sev, matrix, charts,
-              shots_dir: Path, out_path: Path, max_photos: int):
+              shots_dir: Path, has_size: bool, out_path: Path, max_photos: int):
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.lib.units import mm
@@ -342,15 +357,18 @@ def build_pdf(clusters, meta, per_class, per_sev, matrix, charts,
 
     # Tabel detail (maksimal beberapa, sisanya di Excel)
     story.append(Paragraph("Detail Kerusakan", h2))
-    det_head = ["No", "Jenis", "Keparahan", "Lat", "Lon", "Conf", "Luas%"]
+    size_col = "Luas m²" if has_size else "Luas%"
+    det_head = ["No", "Jenis", "Keparahan", "Lat", "Lon", "Conf", size_col]
     det = [det_head]
     ordered = sorted(clusters, key=lambda x: (x["class"], -x["max_rel_area"]))
     for i, c in enumerate(ordered[:40], 1):
+        size_val = (f'{c["max_area_m2"]:.3f}' if has_size and c.get("max_area_m2")
+                    is not None else f'{c["max_rel_area"]*100:.2f}')
         det.append([
             str(i), label_id(c["class"]), c["severity"],
             f'{c["lat"]:.6f}' if c["lat"] is not None else "-",
             f'{c["lon"]:.6f}' if c["lon"] is not None else "-",
-            f'{c["max_conf"]:.2f}', f'{c["max_rel_area"]*100:.2f}',
+            f'{c["max_conf"]:.2f}', size_val,
         ])
     dt = Table(det, colWidths=[10*mm, 32*mm, 22*mm, 28*mm, 28*mm, 16*mm, 18*mm], repeatRows=1)
     dsty = [
@@ -410,29 +428,33 @@ def build_pdf(clusters, meta, per_class, per_sev, matrix, charts,
 # --------------------------------------------------------------------------- #
 def build_report(csv_path, out_dir, meta, want_pdf=True, want_excel=True,
                  merge_dist=8.0, merge_frames=20, sev_low=0.003, sev_high=0.015,
-                 max_photos=9):
+                 sev_low_m2=0.05, sev_high_m2=0.25, max_photos=9):
     csv_path = Path(csv_path); out_dir = Path(out_dir)
     rows = load_rows(csv_path)
     if not rows:
         raise SystemExit("CSV kosong / tidak ada deteksi.")
     clusters, has_gps = cluster_detections(rows, merge_dist, merge_frames)
-    per_class, per_sev, matrix = summarize(clusters, sev_low, sev_high)
+    per_class, per_sev, matrix = summarize(clusters, sev_low, sev_high,
+                                           sev_low_m2, sev_high_m2)
+    has_size = any(c.get("max_area_m2") is not None for c in clusters)
     shots_dir = out_dir / "screenshots"
 
     print(f"  Deteksi mentah     : {len(rows)}")
     print(f"  Kerusakan unik     : {len(clusters)}  "
           f"({'klaster GPS' if has_gps else 'klaster antar-frame'})")
+    print(f"  Keparahan dari     : {'luas m² (kalibrasi)' if has_size else 'ukuran bbox relatif'}")
     for cls, n in per_class.most_common():
         print(f"     - {label_id(cls):<18}: {n}")
 
     charts = build_charts(clusters, per_class, matrix, out_dir)
     outputs = []
     if want_excel:
-        xlsx = build_excel(clusters, meta, per_class, matrix, out_dir / "laporan.xlsx")
+        xlsx = build_excel(clusters, meta, per_class, matrix, has_size,
+                           out_dir / "laporan.xlsx")
         outputs.append(xlsx); print(f"  Excel : {xlsx}")
     if want_pdf:
         pdf = build_pdf(clusters, meta, per_class, per_sev, matrix, charts,
-                        shots_dir, out_dir / "laporan.pdf", max_photos)
+                        shots_dir, has_size, out_dir / "laporan.pdf", max_photos)
         outputs.append(pdf); print(f"  PDF   : {pdf}")
     # bersihkan chart sementara
     for p in charts.values():
@@ -457,9 +479,13 @@ def parse_args(argv=None):
     p.add_argument("--merge-frames", type=int, default=20,
                    help="Jeda frame menggabungkan deteksi (mode tanpa GPS).")
     p.add_argument("--sev-low", type=float, default=0.003,
-                   help="Ambang luas bbox (fraksi) Ringan->Sedang.")
+                   help="Ambang luas bbox (fraksi) Ringan->Sedang (tanpa kalibrasi).")
     p.add_argument("--sev-high", type=float, default=0.015,
-                   help="Ambang luas bbox (fraksi) Sedang->Berat.")
+                   help="Ambang luas bbox (fraksi) Sedang->Berat (tanpa kalibrasi).")
+    p.add_argument("--sev-low-m2", type=float, default=0.05,
+                   help="Ambang luas m² Ringan->Sedang (bila terkalibrasi).")
+    p.add_argument("--sev-high-m2", type=float, default=0.25,
+                   help="Ambang luas m² Sedang->Berat (bila terkalibrasi).")
     p.add_argument("--max-photos", type=int, default=9)
     return p.parse_args(argv)
 
@@ -481,6 +507,7 @@ def main(argv=None) -> int:
                  want_pdf=not args.excel_only, want_excel=not args.pdf_only,
                  merge_dist=args.merge_dist, merge_frames=args.merge_frames,
                  sev_low=args.sev_low, sev_high=args.sev_high,
+                 sev_low_m2=args.sev_low_m2, sev_high_m2=args.sev_high_m2,
                  max_photos=args.max_photos)
     print("  Selesai. Laporan siap kirim.")
     return 0

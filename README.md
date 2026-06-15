@@ -102,6 +102,22 @@ python road_survey.py --source DJI_0001.MP4 --model models\road_damage.pt --map 
 ```
 Output: `laporan.pdf` (ringkasan + grafik + sebaran + tabel + foto) & `laporan.xlsx`. Deteksi per-frame di-**klaster** jadi kerusakan unik (anti dobel-hitung).
 
+### Mode Dashcam (kamera mobil + ukuran + cloud opsional)
+
+Scan jalan real-time dari webcam di mobil, dengan **estimasi ukuran nyata (m²)** via
+kalibrasi kamera, dan **second-opinion cloud opsional** (foto pasca-survey, bukan
+per-frame). Panduan: **[`docs/DASHCAM.md`](docs/DASHCAM.md)**.
+
+```powershell
+# Kalibrasi kamera sekali (setelah dipasang di mobil):
+python scripts\calibrate_camera.py --points-file kalibrasi.csv --image frame.jpg
+# Survey real-time + ukuran + GPS + laporan:
+python road_survey.py --source 0 --model models\road_damage.pt --gps nmea:COM3@4800 ^
+    --calib configs\camera_calib.json --map --report --road "Ruas X"
+# (opsional, saat online) perkaya laporan dgn Claude vision:
+python cloud_enrich.py output\survey_xxx --max-images 30
+```
+
 ### Argumen penting
 
 | Argumen | Default | Fungsi |
