@@ -220,8 +220,18 @@ class MainWindow(QMainWindow):
         form.addRow("Confidence:", self.conf_spin)
 
         self.gps_combo = QComboBox()
-        self.gps_combo.addItems(["Tidak ada", "Auto (.SRT drone di sebelah video)"])
+        self.gps_combo.addItems([
+            "Tidak ada",
+            "USB GPS dongle (COM)",
+            "HP via TCP (NMEA)",
+            "Auto .SRT (footage drone)",
+        ])
+        self.gps_combo.currentIndexChanged.connect(self._on_gps_type)
         form.addRow("GPS:", self.gps_combo)
+        self.gps_detail = QLineEdit()
+        self.gps_detail.setEnabled(False)
+        self.gps_detail.setPlaceholderText("pilih sumber GPS di atas")
+        form.addRow("Detail GPS:", self.gps_detail)
 
         self.road_edit = QLineEdit(); self.road_edit.setPlaceholderText("mis. Ruas Malili–Wawondula")
         form.addRow("Nama ruas:", self.road_edit)
@@ -285,6 +295,26 @@ class MainWindow(QMainWindow):
         self.source_edit.setText(defaults.get(t, ""))
         self.browse_btn.setEnabled(t in ("File video", "Folder gambar"))
 
+    def _on_gps_type(self):
+        idx = self.gps_combo.currentIndex()
+        if idx == 1:        # USB dongle
+            self.gps_detail.setEnabled(True); self.gps_detail.setText("COM3@4800")
+        elif idx == 2:      # HP via TCP
+            self.gps_detail.setEnabled(True); self.gps_detail.setText("192.168.43.1:11123")
+        else:               # Tidak ada / Auto .SRT
+            self.gps_detail.setEnabled(False); self.gps_detail.setText("")
+
+    def _gps_spec(self) -> str:
+        idx = self.gps_combo.currentIndex()
+        d = self.gps_detail.text().strip()
+        if idx == 1:
+            return f"nmea:{d}"
+        if idx == 2:
+            return f"tcp:{d}"
+        if idx == 3:
+            return "auto"
+        return "none"
+
     def _browse_source(self):
         t = self.source_type.currentText()
         if t == "File video":
@@ -316,7 +346,7 @@ class MainWindow(QMainWindow):
             "model": self.model_edit.text().strip(),
             "conf": float(self.conf_spin.value()),
             "output": "output",
-            "gps": "auto" if self.gps_combo.currentIndex() == 1 else "none",
+            "gps": self._gps_spec(),
             "calib": "configs/camera_calib.json",
             "road": self.road_edit.text().strip(),
             "surveyor": self.surveyor_edit.text().strip() or "-",

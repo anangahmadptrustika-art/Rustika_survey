@@ -268,7 +268,7 @@ class SerialNmeaProvider(_LiveNmeaProvider):
         try:
             import serial  # pyserial
         except ImportError:
-            raise SystemExit("Butuh pyserial untuk GPS USB: pip install pyserial")
+            raise RuntimeError("Butuh pyserial untuk GPS USB: pip install pyserial")
         self._ser = serial.Serial(port, baud, timeout=1)
         self._start()
 
