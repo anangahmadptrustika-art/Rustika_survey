@@ -9,6 +9,8 @@ Menjalankan deteksi kerusakan jalan (lubang/retak) dengan model AI **lokal
 
 > 📘 **Cara pakai dari nol sampai laporan jadi → [`PANDUAN.md`](PANDUAN.md)** (SOP lapangan).
 
+> 🖥️ **Pakai lewat APLIKASI (tanpa ketik perintah):** dobel-klik **`Road Survey AI.bat`** → jendela aplikasi terbuka (pilih sumber & model, Start/Stop, counter live, Export laporan). Butuh `pip install pyside6` sekali. Lihat [`docs/APLIKASI.md`](docs/APLIKASI.md).
+
 ---
 
 ## Status & Roadmap
@@ -19,7 +21,7 @@ Menjalankan deteksi kerusakan jalan (lubang/retak) dengan model AI **lokal
 | **2** | Model jalan rusak: (A) pre-trained pothole, lalu (B) fine-tune RDD2022 + data lokal | ✅ pipeline siap — lihat [`docs/FASE2.md`](docs/FASE2.md) |
 | **3** | GPS per deteksi (HP / USB dongle / telemetry .SRT DJI) + peta HTML + GeoJSON | ✅ siap — lihat [`docs/FASE3.md`](docs/FASE3.md) |
 | **4** | Laporan survey PDF/Excel A4 (ringkasan, tabel, peta, foto) | ✅ siap — lihat [`docs/FASE4.md`](docs/FASE4.md) |
-| **5** | (Opsional) Manajemen sesi + GUI | ⏳ |
+| **5** | Aplikasi desktop (GUI): start/stop, counter live, export — dobel-klik | ✅ siap — `gui.py` + `Road Survey AI.bat` ([`docs/APLIKASI.md`](docs/APLIKASI.md)) |
 
 ---
 
