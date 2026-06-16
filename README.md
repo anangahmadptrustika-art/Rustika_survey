@@ -9,7 +9,9 @@ Menjalankan deteksi kerusakan jalan (lubang/retak) dengan model AI **lokal
 
 > 📘 **Cara pakai dari nol sampai laporan jadi → [`PANDUAN.md`](PANDUAN.md)** (SOP lapangan).
 
-> 🖥️ **Pakai lewat APLIKASI (tanpa ketik perintah):** dobel-klik **`Road Survey AI.bat`** → jendela aplikasi terbuka (pilih sumber & model, Start/Stop, counter live, Export laporan). Butuh `pip install pyside6` sekali. Lihat [`docs/APLIKASI.md`](docs/APLIKASI.md).
+> 🌐 **APLIKASI WEB (disarankan):** dobel-klik **`Road Survey AI (Web).bat`** → server lokal jalan & browser kebuka di `http://localhost:5000` (UI dashboard, Cek Kamera, Start/Stop, counter live, Export). Butuh `pip install flask` sekali. 100% offline.
+>
+> 🖥️ **Atau APLIKASI DESKTOP:** dobel-klik **`Road Survey AI.bat`** (PySide6). Lihat [`docs/APLIKASI.md`](docs/APLIKASI.md).
 
 ---
 

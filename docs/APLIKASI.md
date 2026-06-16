@@ -1,3 +1,33 @@
+# Aplikasi Road Survey AI — Pakai Tanpa Ketik Perintah
+
+Ada **dua bentuk** aplikasi (deteksi sama-sama 100% lokal/offline):
+
+| Bentuk | Buka dengan | Cocok untuk |
+|---|---|---|
+| 🌐 **Web App** (disarankan) | dobel-klik `Road Survey AI (Web).bat` → browser `http://localhost:5000` | UI dashboard rapi, ada tombol **Cek Kamera**, gampang dikembangkan |
+| 🖥️ **Desktop (PySide6)** | dobel-klik `Road Survey AI.bat` | jendela native tanpa browser |
+
+---
+
+## 🌐 Web App (localhost)
+
+Pasang sekali: `pip install flask`
+Lalu **dobel-klik `Road Survey AI (Web).bat`** → server jalan, browser kebuka di
+`http://localhost:5000` (otomatis). Tutup jendela hitam (cmd) untuk berhenti.
+
+Di halaman web:
+1. **Sumber** = Webcam → isi **Nomor kamera** (`0` laptop, `1`/`2` USB external).
+   Klik **Cek Kamera** untuk tahu nomor webcam yang nyambung.
+2. **Model** = pilih `models/road_damage.pt` (model 4-kelas-mu).
+3. Atur **Confidence**, isi **Nama ruas** & **Surveyor**.
+4. **▶ MULAI** → video live + kotak deteksi + kartu statistik (FPS, total, per jenis).
+5. **■ STOP** → **📄 Export Laporan + Peta** → muncul link unduh `laporan.pdf`,
+   `laporan.xlsx`, `map.html`.
+
+> Server cuma di `127.0.0.1` (localhost) — tidak terbuka ke jaringan luar.
+
+---
+
 # Aplikasi Desktop (GUI) — Pakai Tanpa Ketik Perintah
 
 `gui.py` membungkus seluruh fitur jadi satu jendela aplikasi. Dibuka dengan
