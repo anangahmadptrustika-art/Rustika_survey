@@ -1,0 +1,38 @@
+# Output sesi survey (CSV, screenshot, video, peta, laporan)
+output/
+runs/
+uploads/
+
+# Kalibrasi kamera (spesifik mesin/pemasangan — generate sendiri)
+configs/camera_calib.json
+
+# Bobot model & dataset (besar — jangan masuk git)
+*.pt
+*.onnx
+*.engine
+datasets/
+data/RDD2022/
+*.zip
+
+# Video/footage uji
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.MP4
+*.MOV
+*.SRT
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

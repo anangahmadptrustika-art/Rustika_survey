@@ -1,0 +1,22 @@
+# data.yaml TEMPLATE untuk training YOLOv8 kerusakan jalan.
+#
+# Biasanya file ini DIBUAT OTOMATIS oleh scripts/voc_to_yolo.py. Template ini
+# untuk dataset yang kamu susun manual (mis. data lokal Luwu Timur hasil LabelImg).
+#
+# Struktur folder yang diharapkan:
+#   <path>/images/train  <path>/labels/train
+#   <path>/images/val    <path>/labels/val
+#
+# Ganti 'path' ke folder dataset kamu, lalu:
+#   python train.py --data configs/road_damage.yaml --model yolov8s.pt --epochs 100
+
+path: datasets/road_damage      # root dataset (ubah ini)
+train: images/train
+val: images/val
+
+nc: 4
+names:
+  0: longitudinal_crack         # retak memanjang (RDD D00/D01)
+  1: transverse_crack           # retak melintang (RDD D10/D11)
+  2: alligator_crack            # retak buaya     (RDD D20)
+  3: pothole                    # lubang          (RDD D40)

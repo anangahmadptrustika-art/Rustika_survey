@@ -1,0 +1,33 @@
+# Road Survey AI — dependensi Fase 1
+#
+# PENTING (Windows + NVIDIA CUDA):
+# Install PyTorch versi CUDA DULU, sebelum yang lain, supaya GPU dipakai.
+# Contoh (CUDA 12.1):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# Baru kemudian:
+#   pip install -r requirements.txt
+# Cek versi CUDA yang cocok di: https://pytorch.org/get-started/locally/
+
+ultralytics>=8.2.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+
+# Fase 3 — GPS & peta
+folium>=0.15.0          # peta HTML titik kerusakan
+# pyserial>=3.5         # HANYA bila pakai GPS USB dongle (NMEA serial). Uncomment bila perlu.
+# (GPX & telemetry .SRT drone DJI diparse tanpa dependensi tambahan)
+
+# Fase 4 — laporan PDF + Excel
+reportlab>=4.0          # laporan PDF A4
+openpyxl>=3.1           # laporan Excel
+matplotlib>=3.7         # grafik & sebaran lokasi di laporan
+
+# Dashcam — estimasi ukuran & cloud enrichment (opsional)
+# numpy sudah di atas (dipakai kalibrasi homography)
+# anthropic>=0.40       # HANYA bila pakai cloud_enrich.py (Claude vision). Uncomment bila perlu.
+
+# Fase 5 — aplikasi desktop (GUI)
+PySide6>=6.6            # jendela aplikasi (gui.py) — dobel-klik lewat "Road Survey AI.bat"
+
+# Fase 5b — web app lokal (browser)
+Flask>=3.0             # web app (webapp.py) — dobel-klik "Road Survey AI (Web).bat"
