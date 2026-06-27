@@ -177,7 +177,7 @@ def open_capture(source: str, env: dict):
     if is_webcam(src_str):
         backend = pick_camera_backend(env["os"])
         return cv2.VideoCapture(int(src_str), backend)
-    if src_str.lower().startswith(("rtsp://", "http://", "https://", "udp://")):
+    if src_str.lower().startswith(("rtsp://", "rtmp://", "http://", "https://", "udp://")):
         return cv2.VideoCapture(src_str, cv2.CAP_FFMPEG)
 
     # Pola glob (mis. frames/*.jpg)

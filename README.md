@@ -21,7 +21,7 @@ Menjalankan deteksi kerusakan jalan (lubang/retak) dengan model AI **lokal
 |------|-----|--------|
 | **1** | Core detection loop: webcam/video/RTSP → YOLO → bbox → CSV + screenshot + FPS | ✅ selesai (`road_survey.py`) |
 | **2** | Model jalan rusak: (A) pre-trained pothole, lalu (B) fine-tune RDD2022 + data lokal | ✅ pipeline siap — lihat [`docs/FASE2.md`](docs/FASE2.md) |
-| **3** | GPS per deteksi (HP / USB dongle / telemetry .SRT DJI) + peta HTML + GeoJSON | ✅ siap — lihat [`docs/FASE3.md`](docs/FASE3.md) |
+| **3** | GPS per deteksi (HP / USB dongle / telemetry .SRT DJI) + peta HTML + GeoJSON | ✅ siap — lihat [`docs/FASE3.md`](docs/FASE3.md) · drone: [`docs/DRONE.md`](docs/DRONE.md) |
 | **4** | Laporan survey PDF/Excel A4 (ringkasan, tabel, peta, foto) | ✅ siap — lihat [`docs/FASE4.md`](docs/FASE4.md) |
 | **5** | Aplikasi desktop (GUI): start/stop, counter live, export — dobel-klik | ✅ siap — `gui.py` + `Road Survey AI.bat` ([`docs/APLIKASI.md`](docs/APLIKASI.md)) |
 

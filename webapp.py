@@ -432,7 +432,7 @@ PAGE = r"""<!doctype html>
       <option value="webcam">Webcam</option>
       <option value="file">File video</option>
       <option value="folder">Folder gambar</option>
-      <option value="rtsp">RTSP / HP</option>
+      <option value="rtsp">Stream (RTSP / RTMP / HP / drone live)</option>
     </select>
 
     <div id="camRow">
@@ -455,6 +455,15 @@ PAGE = r"""<!doctype html>
 
     <label>Confidence: <b id="confVal">0.30</b></label>
     <input type="range" id="conf" min="0.05" max="0.9" step="0.05" value="0.30">
+
+    <label>GPS</label>
+    <select id="gpsType">
+      <option value="none">Tidak ada</option>
+      <option value="auto">Auto — .SRT drone DJI (di sebelah video)</option>
+      <option value="nmea">USB GPS dongle (COM)</option>
+      <option value="tcp">HP via TCP (NMEA)</option>
+    </select>
+    <input id="gpsDetail" style="display:none;margin-top:6px" placeholder="">
 
     <div class="row">
       <div><label>Nama ruas</label><input id="road" placeholder="Ruas Malili–Wawondula"></div>
@@ -503,8 +512,22 @@ $("srcType").onchange = e => {
   $("camRow").style.display = t==="webcam" ? "block":"none";
   $("pathRow").style.display = t==="webcam" ? "none":"block";
   $("srcPath").placeholder = t==="folder" ? "mis. C:\\survey\\frames" :
-     t==="rtsp" ? "rtsp://192.168.x.x:554/live" : "mis. C:\\survey\\jalan.mp4";
+     t==="rtsp" ? "rtsp://localhost:8554/live  atau  rtmp://localhost:1935/live/x" :
+     "mis. C:\\survey\\DJI_0001.MP4";
 };
+
+$("gpsType").onchange = e => {
+  const t = e.target.value, d = $("gpsDetail");
+  if(t==="nmea"){ d.style.display="block"; d.value="COM3@4800"; }
+  else if(t==="tcp"){ d.style.display="block"; d.value="192.168.43.1:11123"; }
+  else { d.style.display="none"; d.value=""; }
+};
+function gpsSpec(){
+  const t = $("gpsType").value, d = $("gpsDetail").value.trim();
+  if(t==="nmea") return "nmea:"+d;
+  if(t==="tcp") return "tcp:"+d;
+  return t;  // "none" atau "auto"
+}
 
 $("checkCam").onclick = async () => {
   $("camResult").textContent = "Mengecek...";
@@ -522,7 +545,7 @@ function sourceValue(){
 
 $("startBtn").onclick = async () => {
   const body = {source:sourceValue(), model:$("model").value, conf:$("conf").value,
-    road:$("road").value, surveyor:$("surveyor").value, gps:"none"};
+    road:$("road").value, surveyor:$("surveyor").value, gps:gpsSpec()};
   $("status").textContent = "Memulai...";
   const r = await fetch("/start",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify(body)});
