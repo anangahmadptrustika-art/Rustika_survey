@@ -33,6 +33,7 @@ except ImportError:
 import road_survey as rs
 
 OUTPUT_DIR = Path("output")
+UPLOAD_DIR = Path("uploads")
 
 
 # --------------------------------------------------------------------------- #
@@ -247,6 +248,7 @@ class Engine:
 
 engine = Engine()
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 ** 3   # izinkan video drone besar (≤16 GB)
 
 
 # --------------------------------------------------------------------------- #
@@ -297,6 +299,27 @@ def start():
 def stop():
     engine.stop()
     return jsonify(ok=True)
+
+
+@app.route("/upload", methods=["POST"])
+def upload():
+    """Terima video drone (+ .SRT opsional) dari browser, simpan ke uploads/."""
+    from werkzeug.utils import secure_filename
+    v = request.files.get("video")
+    if not v or not v.filename:
+        return jsonify(ok=False, error="Tidak ada file video.")
+    UPLOAD_DIR.mkdir(exist_ok=True)
+    vname = secure_filename(v.filename) or "drone.mp4"
+    stem = Path(vname).stem
+    vpath = UPLOAD_DIR / vname
+    v.save(str(vpath))
+    srt_saved = False
+    s = request.files.get("srt")
+    if s and s.filename:
+        # simpan .SRT dengan nama dasar yang sama -> dideteksi otomatis (GPS auto)
+        s.save(str(UPLOAD_DIR / (stem + ".SRT")))
+        srt_saved = True
+    return jsonify(ok=True, video_path=str(vpath).replace("\\", "/"), srt=srt_saved)
 
 
 @app.route("/stats")
@@ -429,13 +452,20 @@ PAGE = r"""<!doctype html>
     <h2>Pengaturan Survei</h2>
     <label>Sumber</label>
     <select id="srcType">
-      <option value="webcam">Webcam</option>
-      <option value="file">File video</option>
+      <option value="drone">Upload Video Drone (DJI)</option>
+      <option value="webcam">Webcam (kamera mobil / live)</option>
       <option value="folder">Folder gambar</option>
-      <option value="rtsp">Stream (RTSP / RTMP / HP / drone live)</option>
     </select>
 
-    <div id="camRow">
+    <div id="droneRow">
+      <label>Video drone (.MP4)</label>
+      <input type="file" id="videoFile" accept="video/*,.mp4,.mov,.avi,.mkv">
+      <label>File GPS (.SRT) <span class="small">— buat titik koordinat</span></label>
+      <input type="file" id="srtFile" accept=".srt,.SRT">
+      <div class="small">Pilih <b>DJI_xxxx.MP4</b> + <b>DJI_xxxx.SRT</b> dari SD card drone
+        (dua-duanya). Tanpa .SRT, deteksi tetap jalan tapi tanpa lokasi.</div>
+    </div>
+    <div id="camRow" style="display:none">
       <label>Nomor kamera <span class="small">(0=laptop, 1/2=USB external)</span></label>
       <div class="row">
         <input id="camIdx" value="0">
@@ -444,8 +474,8 @@ PAGE = r"""<!doctype html>
       <div class="small" id="camResult"></div>
     </div>
     <div id="pathRow" style="display:none">
-      <label>Path file / folder / URL</label>
-      <input id="srcPath" placeholder="mis. C:\survey\jalan.mp4 atau rtsp://...">
+      <label>Path folder gambar (di laptop)</label>
+      <input id="srcPath" placeholder="mis. C:\survey\frames">
     </div>
 
     <label>Model</label>
@@ -456,14 +486,15 @@ PAGE = r"""<!doctype html>
     <label>Confidence: <b id="confVal">0.30</b></label>
     <input type="range" id="conf" min="0.05" max="0.9" step="0.05" value="0.30">
 
-    <label>GPS</label>
-    <select id="gpsType">
-      <option value="none">Tidak ada</option>
-      <option value="auto">Auto — .SRT drone DJI (di sebelah video)</option>
-      <option value="nmea">USB GPS dongle (COM)</option>
-      <option value="tcp">HP via TCP (NMEA)</option>
-    </select>
-    <input id="gpsDetail" style="display:none;margin-top:6px" placeholder="">
+    <div id="gpsRow" style="display:none">
+      <label>GPS</label>
+      <select id="gpsType">
+        <option value="none">Tidak ada</option>
+        <option value="nmea">USB GPS dongle (COM)</option>
+        <option value="tcp">HP via TCP (NMEA)</option>
+      </select>
+      <input id="gpsDetail" style="display:none;margin-top:6px" placeholder="">
+    </div>
 
     <div class="row">
       <div><label>Nama ruas</label><input id="road" placeholder="Ruas Malili–Wawondula"></div>
@@ -509,11 +540,11 @@ $("conf").oninput = e => $("confVal").textContent = (+e.target.value).toFixed(2)
 
 $("srcType").onchange = e => {
   const t = e.target.value;
-  $("camRow").style.display = t==="webcam" ? "block":"none";
-  $("pathRow").style.display = t==="webcam" ? "none":"block";
-  $("srcPath").placeholder = t==="folder" ? "mis. C:\\survey\\frames" :
-     t==="rtsp" ? "rtsp://localhost:8554/live  atau  rtmp://localhost:1935/live/x" :
-     "mis. C:\\survey\\DJI_0001.MP4";
+  $("droneRow").style.display = t==="drone"  ? "block":"none";
+  $("camRow").style.display   = t==="webcam" ? "block":"none";
+  $("pathRow").style.display  = t==="folder" ? "block":"none";
+  // GPS dropdown hanya untuk webcam/folder; drone pakai .SRT otomatis.
+  $("gpsRow").style.display   = t==="drone"  ? "none":"block";
 };
 
 $("gpsType").onchange = e => {
@@ -538,15 +569,34 @@ $("checkCam").onclick = async () => {
      "Tidak ada kamera terdeteksi.";
 };
 
-function sourceValue(){
-  const t = $("srcType").value;
-  return t==="webcam" ? $("camIdx").value.trim() : $("srcPath").value.trim();
+async function uploadDrone(){
+  const v = $("videoFile").files[0];
+  if(!v){ alert("Pilih file video drone dulu."); return {ok:false,error:"video kosong"}; }
+  const fd = new FormData();
+  fd.append("video", v);
+  const s = $("srtFile").files[0];
+  if(s) fd.append("srt", s);
+  $("status").textContent = "Mengupload video drone... (file besar butuh beberapa menit, sabar)";
+  const r = await fetch("/upload", {method:"POST", body:fd});
+  return await r.json();
 }
 
 $("startBtn").onclick = async () => {
-  const body = {source:sourceValue(), model:$("model").value, conf:$("conf").value,
-    road:$("road").value, surveyor:$("surveyor").value, gps:gpsSpec()};
-  $("status").textContent = "Memulai...";
+  const t = $("srcType").value;
+  let source, gps;
+  if(t==="drone"){
+    const up = await uploadDrone();
+    if(!up.ok){ $("status").textContent = "Upload gagal: "+(up.error||""); return; }
+    source = up.video_path;
+    gps = up.srt ? "auto" : "none";
+    if(!up.srt) $("status").textContent = "Catatan: tanpa .SRT, hasil tidak ada koordinat. ";
+  } else {
+    source = (t==="webcam") ? $("camIdx").value.trim() : $("srcPath").value.trim();
+    gps = gpsSpec();
+  }
+  const body = {source, model:$("model").value, conf:$("conf").value,
+    road:$("road").value, surveyor:$("surveyor").value, gps};
+  $("status").textContent += "Memulai...";
   const r = await fetch("/start",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify(body)});
   const j = await r.json();
